@@ -142,6 +142,22 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
+/**
+ * Devuelve un objeto "limpio" para el front (sin datos sensibles)
+ */
+const sanitizeCloudinaryResult = (r) => ({
+  public_id: r.public_id,
+  secure_url: r.secure_url,
+  url: r.url,
+  bytes: r.bytes,
+  width: r.width,
+  height: r.height,
+  format: r.format,
+  created_at: r.created_at,
+  folder: r.folder,
+  original_filename: r.original_filename,
+});
+
 export const uploadImages = async (req, res) => {
   try {
     const files = req.files || {};
@@ -153,18 +169,18 @@ export const uploadImages = async (req, res) => {
       return res.status(400).json({ error: "No images provided" });
     }
 
-    const cloudinaryObjectArray = [];
+    const results = [];
 
     // 1) Imagen principal
     if (image) {
-      const imageUrl = await uploadToCloudinary(image.buffer);
-      cloudinaryObjectArray.push(imageUrl);
+      const uploaded = await uploadToCloudinary(image.buffer);
+      results.push(sanitizeCloudinaryResult(uploaded));
     }
 
     // 2) Array de imágenes
     for (const file of imagesArray) {
-      const fileUrl = await uploadToCloudinary(file.buffer);
-      cloudinaryObjectArray.push(fileUrl);
+      const uploaded = await uploadToCloudinary(file.buffer);
+      results.push(sanitizeCloudinaryResult(uploaded));
     }
 
     // 3) Imagen desde URL externa (opcional)
@@ -173,16 +189,18 @@ export const uploadImages = async (req, res) => {
         const response = await axios.get(req.body.imageUrl, {
           responseType: "arraybuffer",
         });
-        const uploadedUrlImage = await uploadToCloudinary(
-          Buffer.from(response.data)
-        );
-        cloudinaryObjectArray.push(uploadedUrlImage);
+        const uploaded = await uploadToCloudinary(Buffer.from(response.data));
+        results.push(sanitizeCloudinaryResult(uploaded));
       } catch (e) {
         console.error("Error uploading image from URL:", e?.message || e);
+        return res.status(400).json({
+          error: "Failed to upload image from URL",
+          detail: e?.message || String(e),
+        });
       }
     }
 
-    return res.json(cloudinaryObjectArray);
+    return res.json(results);
   } catch (error) {
     console.error("Error uploading images:", error);
     return res.status(500).json({
@@ -219,7 +237,11 @@ export const deleteImages = async (req, res) => {
           await DBIMAGE.destroy({ where: { cloudinaryID } });
         })
       );
-    } else if (publicId && !Array.isArray(publicId) && projectId) {
+
+      return res.json({ message: "Images deleted successfully" });
+    }
+
+    if (publicId && !Array.isArray(publicId) && projectId) {
       const response = await cloudinary.uploader.destroy(publicId);
       if (response.result !== "ok") {
         throw new Error(
@@ -228,20 +250,25 @@ export const deleteImages = async (req, res) => {
       }
 
       await DBIMAGE.destroy({ where: { cloudinaryID: publicId } });
-    } else if (publicId && !projectId) {
+      return res.json({ message: "Image deleted successfully" });
+    }
+
+    if (publicId && !projectId) {
       const response = await cloudinary.uploader.destroy(publicId);
       if (response.result !== "ok") {
         throw new Error(
           `Failed to delete image with ID ${publicId}: ${response.result}`
         );
       }
+      return res.json({ message: "Image deleted successfully" });
     }
 
-    return res.json({ message: "Image deleted successfully" });
+    return res.status(400).json({ error: "Invalid delete request" });
   } catch (error) {
     console.error("Error deleting image:", error);
-    return res
-      .status(500)
-      .json({ error: `Failed to delete image: ${error.message}` });
+    return res.status(500).json({
+      error: "Failed to delete image",
+      detail: error?.message || String(error),
+    });
   }
 };
