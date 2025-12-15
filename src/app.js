@@ -125,6 +125,17 @@ app.get("/health", (req, res) => {
 });
 
 /* -------------------------------------------------------
+   Debug ENV (temporal)
+------------------------------------------------------- */
+app.get("/debug/env", (req, res) => {
+  res.json({
+    nodeEnv: process.env.NODE_ENV || null,
+    hasCloudinaryUrl: Boolean(process.env.CLOUDINARY_URL),
+    cloudinaryUrlStartsWith: (process.env.CLOUDINARY_URL || "").slice(0, 12), // "cloudinary://"
+  });
+});
+
+/* -------------------------------------------------------
    Routes
 ------------------------------------------------------- */
 app.use("/api", authRoutes);
