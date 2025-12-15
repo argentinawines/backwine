@@ -1,5 +1,13 @@
+import express from "express";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import session from "express-session";
+import passport from "passport";
+import dotenv from "dotenv";
+import multer from "multer";
+
+import "./utils/Passport.js";
+
 import userRoute from "./routes/user.routes.js";
 import productRoute from "./routes/product.routes.js";
 import cartRoute from "./routes/cart.routes.js";
@@ -7,44 +15,65 @@ import authRoutes from "./routes/auth.routes.js";
 import cloudinaryRoutes from "./routes/cloudinary.routes.js";
 import migrateRoutes from "./routes/migrate.routes.js";
 import orderRoute from "./routes/order.routes.js";
-import express from "express";
-import session from "express-session";
-import passport from "passport";
-import "./utils/Passport.js";
-import dotenv from "dotenv";
-import multer from "multer";
 
 dotenv.config();
 
 const app = express();
 
-// Middlewares globales
+/* -------------------------------------------------------
+   Trust proxy (Render / reverse proxy)
+------------------------------------------------------- */
+app.set("trust proxy", 1);
+
+/* -------------------------------------------------------
+   Middlewares globales
+------------------------------------------------------- */
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.json({ limit: "50mb" }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 
-// Configuración de CORS
-const allowedOrigins = ["https://tudominio.com", "https://front-end-app.com"];
+/* -------------------------------------------------------
+   CORS (solo tus dominios)
+------------------------------------------------------- */
+const allowedOrigins = new Set([
+  "https://argentinawineshipping.com",
+  "https://www.argentinawineshipping.com",
+  // opcional (para pruebas):
+  "http://localhost:3000",
+]);
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
+
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin"); // importante para caches/proxies
   }
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
+
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
     "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS, PUT, DELETE"
+  );
+
+  // Responder preflight rápido
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+
   next();
 });
 
-// Configura multer
+/* -------------------------------------------------------
+   Multer (solo en memoria)
+------------------------------------------------------- */
 const storage = multer.memoryStorage();
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // limita el tamaño de archivo a 10MB
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 app.use((req, res, next) => {
@@ -54,25 +83,39 @@ app.use((req, res, next) => {
   ])(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ error: err.message });
-    } else if (err) {
+    }
+    if (err) {
       return res.status(500).json({ error: err.message });
     }
     next();
   });
 });
 
-// Configuración de sesión
+/* -------------------------------------------------------
+   Sesión + Passport
+------------------------------------------------------- */
+const isProd = process.env.NODE_ENV === "production";
+
 const sessionConfig = {
+  name: "sid",
   secret: process.env.SESSION_SECRET || "default_secret",
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false },
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd, // en Render debe ser true (https)
+    maxAge: 1000 * 60 * 60 * 12, // 12h
+  },
 };
+
 app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Rutas de salud y verificación
+/* -------------------------------------------------------
+   Health
+------------------------------------------------------- */
 app.get("/", (req, res) => {
   res.status(200).json({ ok: true, service: "backwine", status: "running" });
 });
@@ -81,7 +124,9 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-// Rutas de la API
+/* -------------------------------------------------------
+   Routes
+------------------------------------------------------- */
 app.use("/api", authRoutes);
 app.use(userRoute);
 app.use(productRoute);
@@ -89,5 +134,12 @@ app.use(cartRoute);
 app.use(cloudinaryRoutes);
 app.use(migrateRoutes);
 app.use(orderRoute);
+
+/* -------------------------------------------------------
+   404 JSON (evita HTML feo)
+------------------------------------------------------- */
+app.use((req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
 
 export default app;
