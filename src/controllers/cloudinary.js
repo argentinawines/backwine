@@ -131,7 +131,7 @@ const uploadToCloudinary = (fileBuffer) => {
       .upload_stream(
         {
           resource_type: "image",
-          folder: "argentinawines", // cambiá el nombre si querés
+          folder: "argentinawines",
         },
         (err, result) => {
           if (err) return reject(err);
@@ -142,26 +142,9 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
-/**
- * Devuelve un objeto "limpio" para el front (sin datos sensibles)
- */
-const sanitizeCloudinaryResult = (r) => ({
-  public_id: r.public_id,
-  secure_url: r.secure_url,
-  url: r.url,
-  bytes: r.bytes,
-  width: r.width,
-  height: r.height,
-  format: r.format,
-  created_at: r.created_at,
-  folder: r.folder,
-  original_filename: r.original_filename,
-});
-
 export const uploadImages = async (req, res) => {
   try {
     const files = req.files || {};
-
     const image = files.image?.[0] || null;
     const imagesArray = files.imagesArray || [];
 
@@ -169,38 +152,35 @@ export const uploadImages = async (req, res) => {
       return res.status(400).json({ error: "No images provided" });
     }
 
-    const results = [];
+    const out = [];
 
     // 1) Imagen principal
-    if (image) {
-      const uploaded = await uploadToCloudinary(image.buffer);
-      results.push(sanitizeCloudinaryResult(uploaded));
+    if (image?.buffer) {
+      const result = await uploadToCloudinary(image.buffer);
+      out.push(result);
     }
 
     // 2) Array de imágenes
-    for (const file of imagesArray) {
-      const uploaded = await uploadToCloudinary(file.buffer);
-      results.push(sanitizeCloudinaryResult(uploaded));
+    for (const f of imagesArray) {
+      if (!f?.buffer) continue;
+      const result = await uploadToCloudinary(f.buffer);
+      out.push(result);
     }
 
     // 3) Imagen desde URL externa (opcional)
     if (req.body?.imageUrl) {
       try {
-        const response = await axios.get(req.body.imageUrl, {
+        const resp = await axios.get(req.body.imageUrl, {
           responseType: "arraybuffer",
         });
-        const uploaded = await uploadToCloudinary(Buffer.from(response.data));
-        results.push(sanitizeCloudinaryResult(uploaded));
+        const result = await uploadToCloudinary(Buffer.from(resp.data));
+        out.push(result);
       } catch (e) {
         console.error("Error uploading image from URL:", e?.message || e);
-        return res.status(400).json({
-          error: "Failed to upload image from URL",
-          detail: e?.message || String(e),
-        });
       }
     }
 
-    return res.json(results);
+    return res.json(out);
   } catch (error) {
     console.error("Error uploading images:", error);
     return res.status(500).json({
@@ -214,56 +194,30 @@ export const deleteImages = async (req, res) => {
   try {
     const { publicId, projectId } = req.body || {};
 
-    if (!publicId && !projectId) {
-      return res
-        .status(400)
-        .json({ error: "Image ID and Project ID are required" });
+    if (!publicId) {
+      return res.status(400).json({ error: "publicId is required" });
     }
 
-    if (Array.isArray(publicId) && projectId) {
+    const ids = Array.isArray(publicId) ? publicId : [publicId];
+
+    // 1) Borrar en Cloudinary
+    await Promise.all(
+      ids.map(async (id) => {
+        const r = await cloudinary.uploader.destroy(id);
+        if (r.result !== "ok" && r.result !== "not found") {
+          throw new Error(`Cloudinary destroy failed for ${id}: ${r.result}`);
+        }
+      })
+    );
+
+    // 2) Borrar en DB (si corresponde)
+    if (projectId) {
       await Promise.all(
-        publicId.map(async (id) => {
-          const response = await cloudinary.uploader.destroy(id);
-          if (response.result !== "ok") {
-            throw new Error(
-              `Failed to delete image with ID ${id}: ${response.result}`
-            );
-          }
-        })
+        ids.map((cloudinaryID) => DBIMAGE.destroy({ where: { cloudinaryID } }))
       );
-
-      await Promise.all(
-        publicId.map(async (cloudinaryID) => {
-          await DBIMAGE.destroy({ where: { cloudinaryID } });
-        })
-      );
-
-      return res.json({ message: "Images deleted successfully" });
     }
 
-    if (publicId && !Array.isArray(publicId) && projectId) {
-      const response = await cloudinary.uploader.destroy(publicId);
-      if (response.result !== "ok") {
-        throw new Error(
-          `Failed to delete image with ID ${publicId}: ${response.result}`
-        );
-      }
-
-      await DBIMAGE.destroy({ where: { cloudinaryID: publicId } });
-      return res.json({ message: "Image deleted successfully" });
-    }
-
-    if (publicId && !projectId) {
-      const response = await cloudinary.uploader.destroy(publicId);
-      if (response.result !== "ok") {
-        throw new Error(
-          `Failed to delete image with ID ${publicId}: ${response.result}`
-        );
-      }
-      return res.json({ message: "Image deleted successfully" });
-    }
-
-    return res.status(400).json({ error: "Invalid delete request" });
+    return res.json({ message: "Image deleted successfully", deleted: ids });
   } catch (error) {
     console.error("Error deleting image:", error);
     return res.status(500).json({
