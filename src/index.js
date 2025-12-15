@@ -4,9 +4,21 @@ import { sequelize } from "./database/database.js";
 
 dotenv.config();
 
-const { PORT } = process.env;
+const PORT = process.env.PORT || 10000;
 
-app.listen(PORT, () => {
-  console.log(`Listening at PORT ${PORT} `);
-  sequelize.sync({ force: false });
-});
+async function start() {
+  try {
+    await sequelize.authenticate(); // prueba conexión
+    await sequelize.sync({ force: false });
+    console.log("DB OK");
+
+    app.listen(PORT, () => {
+      console.log(`Listening at PORT ${PORT}`);
+    });
+  } catch (err) {
+    console.error("DB ERROR:", err);
+    process.exit(1);
+  }
+}
+
+start();
