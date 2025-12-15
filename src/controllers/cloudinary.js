@@ -122,81 +122,79 @@ import cloudinary from "../config/cloudinary.js";
 import { DBIMAGE } from "../models/DBIMAGE.js";
 import axios from "axios";
 
+/**
+ * Sube un buffer a Cloudinary usando upload_stream (ideal con multer.memoryStorage)
+ */
 const uploadToCloudinary = (fileBuffer) => {
-  console.log("fileBuffer", fileBuffer);
-
   return new Promise((resolve, reject) => {
     cloudinary.uploader
-      .upload_stream({}, (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
+      .upload_stream(
+        {
+          resource_type: "image",
+          folder: "argentinawines", // cambiá el nombre si querés
+        },
+        (err, result) => {
+          if (err) return reject(err);
           resolve(result);
         }
-      })
+      )
       .end(fileBuffer);
   });
 };
 
 export const uploadImages = async (req, res) => {
   try {
-    console.log("req.files imagenes", req.files.image[0]);
-    const files  = req.files? req.files : null 
+    const files = req.files || {};
 
+    const image = files.image?.[0] || null;
+    const imagesArray = files.imagesArray || [];
 
-const image = files && files.image ? files.image[0]:null;
-  
-    const imagesArray = files && files.imagesArray ? files.imagesArray : [];
-
-
-    if (!image && imagesArray.length === 0 && !req.body.imageUrl) {
-   
-      
+    if (!image && imagesArray.length === 0 && !req.body?.imageUrl) {
       return res.status(400).json({ error: "No images provided" });
     }
 
     const cloudinaryObjectArray = [];
 
+    // 1) Imagen principal
     if (image) {
-      console.log("no hay imagenes2");
-      const imageBuffer = Buffer.from(image.buffer);
-      const imageUrl = await uploadToCloudinary(imageBuffer);
+      const imageUrl = await uploadToCloudinary(image.buffer);
       cloudinaryObjectArray.push(imageUrl);
     }
 
+    // 2) Array de imágenes
     for (const file of imagesArray) {
-      const fileBuffer = Buffer.from(file.buffer);
-      const fileUrl = await uploadToCloudinary(fileBuffer);
+      const fileUrl = await uploadToCloudinary(file.buffer);
       cloudinaryObjectArray.push(fileUrl);
     }
 
-    // 🔽 NUEVO: Imagen desde URL externa
-    if (req.body.imageUrl) {
-      console.log("no hay imagenes3");
+    // 3) Imagen desde URL externa (opcional)
+    if (req.body?.imageUrl) {
       try {
         const response = await axios.get(req.body.imageUrl, {
           responseType: "arraybuffer",
         });
-        const urlBuffer = Buffer.from(response.data, "binary");
-        const uploadedUrlImage = await uploadToCloudinary(urlBuffer);
+        const uploadedUrlImage = await uploadToCloudinary(
+          Buffer.from(response.data)
+        );
         cloudinaryObjectArray.push(uploadedUrlImage);
       } catch (e) {
-        console.error("Error uploading image from URL:", e.message);
+        console.error("Error uploading image from URL:", e?.message || e);
       }
     }
 
-    res.json(cloudinaryObjectArray);
+    return res.json(cloudinaryObjectArray);
   } catch (error) {
     console.error("Error uploading images:", error);
-    res.status(500).json({ error: "Failed to upload images" });
+    return res.status(500).json({
+      error: "Failed to upload images",
+      detail: error?.message || String(error),
+    });
   }
 };
 
 export const deleteImages = async (req, res) => {
   try {
-    const body = await req.body;
-    const { publicId, projectId } = body;
-    console.log("publicId", publicId);
+    const { publicId, projectId } = req.body || {};
 
     if (!publicId && !projectId) {
       return res
@@ -218,7 +216,7 @@ export const deleteImages = async (req, res) => {
 
       await Promise.all(
         publicId.map(async (cloudinaryID) => {
-          await DBIMAGE.destroy({ where: { cloudinaryID: cloudinaryID } });
+          await DBIMAGE.destroy({ where: { cloudinaryID } });
         })
       );
     } else if (publicId && !Array.isArray(publicId) && projectId) {
@@ -239,11 +237,11 @@ export const deleteImages = async (req, res) => {
       }
     }
 
-    res.json({ message: "Image deleted successfully" });
+    return res.json({ message: "Image deleted successfully" });
   } catch (error) {
     console.error("Error deleting image:", error);
-    res
+    return res
       .status(500)
-      .json({ error: `Failed to delete image: ${error.message} ` });
+      .json({ error: `Failed to delete image: ${error.message}` });
   }
 };
