@@ -1,24 +1,26 @@
+import "dotenv/config";
 import app from "./app.js";
-import dotenv from "dotenv";
 import { sequelize } from "./database/database.js";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 10000;
 
-async function start() {
-  try {
-    await sequelize.authenticate(); // prueba conexión
-    await sequelize.sync({ force: false });
-    console.log("DB OK");
+let dbOk = false;
 
-    app.listen(PORT, () => {
-      console.log(`Listening at PORT ${PORT}`);
-    });
+app.get("/health", (req, res) => {
+  res.status(dbOk ? 200 : 503).json({ ok: true, db: dbOk });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Listening at PORT ${PORT}`);
+});
+
+(async () => {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync({ force: false });
+    dbOk = true;
+    console.log("DB OK");
   } catch (err) {
     console.error("DB ERROR:", err);
-    process.exit(1);
   }
-}
-
-start();
+})();
