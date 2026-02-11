@@ -150,6 +150,7 @@ app.use("/api", orderRoute);
 // ✅ Mantener rutas viejas (si las usabas sin /api)
 app.use(userRoute);
 app.use(productRoute);
+app.use("/api", productRoute); // agrega /api/product y /api/products
 app.use(cartRoute);
 app.use(cloudinaryRoutes);
 app.use(migrateRoutes);
