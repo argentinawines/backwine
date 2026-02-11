@@ -1,9 +1,9 @@
+// src/app.js
 import express from "express";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "passport";
-import dotenv from "dotenv";
 import multer from "multer";
 
 import "./utils/Passport.js";
@@ -15,8 +15,6 @@ import authRoutes from "./routes/auth.routes.js";
 import cloudinaryRoutes from "./routes/cloudinary.routes.js";
 import migrateRoutes from "./routes/migrate.routes.js";
 import orderRoute from "./routes/order.routes.js";
-
-dotenv.config();
 
 const app = express();
 
@@ -39,7 +37,6 @@ app.use(morgan("dev"));
 const allowedOrigins = new Set([
   "https://argentinawineshipping.com",
   "https://www.argentinawineshipping.com",
-  // opcional (para pruebas):
   "http://localhost:3000",
 ]);
 
@@ -48,7 +45,7 @@ app.use((req, res, next) => {
 
   if (origin && allowedOrigins.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin"); // importante para caches/proxies
+    res.setHeader("Vary", "Origin");
   }
 
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -61,7 +58,6 @@ app.use((req, res, next) => {
     "GET, POST, OPTIONS, PUT, DELETE"
   );
 
-  // Responder preflight rápido
   if (req.method === "OPTIONS") return res.sendStatus(204);
 
   next();
@@ -104,8 +100,8 @@ const sessionConfig = {
   cookie: {
     httpOnly: true,
     sameSite: "lax",
-    secure: isProd, // en Render debe ser true (https)
-    maxAge: 1000 * 60 * 60 * 12, // 12h
+    secure: isProd, // si NODE_ENV no es production en Render, esto queda false
+    maxAge: 1000 * 60 * 60 * 12,
   },
 };
 
@@ -131,14 +127,27 @@ app.get("/debug/env", (req, res) => {
   res.json({
     nodeEnv: process.env.NODE_ENV || null,
     hasCloudinaryUrl: Boolean(process.env.CLOUDINARY_URL),
-    cloudinaryUrlStartsWith: (process.env.CLOUDINARY_URL || "").slice(0, 12), // "cloudinary://"
+    cloudinaryUrlStartsWith: (process.env.CLOUDINARY_URL || "").slice(0, 12),
   });
 });
 
 /* -------------------------------------------------------
    Routes
+   ✅ Agregamos alias /api para que exista /api/products, /api/cart, etc.
 ------------------------------------------------------- */
+
+// auth ya estaba bajo /api
 app.use("/api", authRoutes);
+
+// ✅ Alias: ahora los routers también viven bajo /api/...
+app.use("/api", userRoute);
+app.use("/api", productRoute);
+app.use("/api", cartRoute);
+app.use("/api", cloudinaryRoutes);
+app.use("/api", migrateRoutes);
+app.use("/api", orderRoute);
+
+// ✅ Mantener rutas viejas (si las usabas sin /api)
 app.use(userRoute);
 app.use(productRoute);
 app.use(cartRoute);
@@ -147,7 +156,7 @@ app.use(migrateRoutes);
 app.use(orderRoute);
 
 /* -------------------------------------------------------
-   404 JSON (evita HTML feo)
+   404 JSON
 ------------------------------------------------------- */
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
