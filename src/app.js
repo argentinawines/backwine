@@ -116,8 +116,15 @@ app.get("/", (req, res) => {
   res.status(200).json({ ok: true, service: "backwine", status: "running" });
 });
 
+// Health liviano (para keep-alive / ping) - NO toca DB
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
+});
+
+// Health real (monitoreo DB)
+app.get("/healthz", (req, res) => {
+  const dbOk = !!req.app.locals.dbOk;
+  res.status(dbOk ? 200 : 503).json({ ok: dbOk, db: dbOk });
 });
 
 /* -------------------------------------------------------
