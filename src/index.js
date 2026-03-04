@@ -5,23 +5,8 @@ import { sequelize } from "./database/database.js";
 
 const PORT = process.env.PORT || 10000;
 
-let dbOk = false;
-
-/**
- * Health liviano (para keep-alive / ping)
- * Siempre 200 y NO toca DB.
- */
-app.get("/health", (req, res) => {
-  res.status(200).json({ ok: true, ts: new Date().toISOString() });
-});
-
-/**
- * Health real (monitoreo DB)
- * 200 si DB OK, 503 si DB NO OK.
- */
-app.get("/healthz", (req, res) => {
-  res.status(dbOk ? 200 : 503).json({ ok: dbOk, db: dbOk });
-});
+// Estado DB compartido con app.js
+app.locals.dbOk = false;
 
 // ✅ IMPORTANTE para Render: escuchar rápido y en 0.0.0.0
 app.listen(PORT, "0.0.0.0", () => {
@@ -33,10 +18,10 @@ app.listen(PORT, "0.0.0.0", () => {
   try {
     await sequelize.authenticate();
     await sequelize.sync({ force: false });
-    dbOk = true;
+    app.locals.dbOk = true;
     console.log("DB OK");
   } catch (err) {
-    dbOk = false;
+    app.locals.dbOk = false;
     console.error("DB ERROR:", err);
     // No hacemos process.exit(1) para no tumbar el servicio.
   }
