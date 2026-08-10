@@ -39,11 +39,16 @@ const allowedOrigins = new Set([
   "https://www.argentinawineshipping.com",
   "http://localhost:3000",
 ]);
+const whineshippingPreviewOrigin =
+  /^https:\/\/whineshipping-pr-\d+\.onrender\.com$/;
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  const isAllowedOrigin =
+    origin &&
+    (allowedOrigins.has(origin) || whineshippingPreviewOrigin.test(origin));
 
-  if (origin && allowedOrigins.has(origin)) {
+  if (isAllowedOrigin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
