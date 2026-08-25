@@ -15,6 +15,7 @@ import authRoutes from "./routes/auth.routes.js";
 import cloudinaryRoutes from "./routes/cloudinary.routes.js";
 import migrateRoutes from "./routes/migrate.routes.js";
 import orderRoute from "./routes/order.routes.js";
+import paypalRoute from "./routes/paypal.routes.js";
 
 const app = express();
 
@@ -158,6 +159,7 @@ app.use("/api", cartRoute);
 app.use("/api", cloudinaryRoutes);
 app.use("/api", migrateRoutes);
 app.use("/api", orderRoute);
+app.use("/api", paypalRoute);
 
 // ✅ Mantener rutas viejas (si las usabas sin /api)
 app.use(userRoute);
@@ -167,6 +169,7 @@ app.use(cartRoute);
 app.use(cloudinaryRoutes);
 app.use(migrateRoutes);
 app.use(orderRoute);
+app.use(paypalRoute);
 
 /* -------------------------------------------------------
    404 JSON

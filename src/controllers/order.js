@@ -2,11 +2,19 @@ import { Order  } from '../models/Order.js'
 import { Cart } from '../models/Cart.js'
 import { Product } from '../models/Product.js';
 import { sequelize } from '../database/database.js';
+import { Op } from 'sequelize';
 
 
 export const getOrders = async (req, res) => {
     try {
       const orders = await Order.findAll({
+        attributes: { exclude: ["paypalOrderId", "paypalCaptureId"] },
+        where: {
+          [Op.or]: [
+            { paymentStatus: null },
+            { paymentStatus: { [Op.in]: ["COMPLETED", "REFUNDED"] } },
+          ],
+        },
         order: [["id", "DESC"]],
         include: [
           {
@@ -28,7 +36,10 @@ export const getOrders = async (req, res) => {
 export const getOrderID = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const orderId = await Order.findByPk(id);
+        const orderId = await Order.findByPk(id, {
+            attributes: { exclude: ["paypalOrderId", "paypalCaptureId"] },
+            include: [{ model: Cart, include: [{ model: Product }] }],
+        });
         if (!orderId)
         return res
             .status(404)
@@ -119,7 +130,7 @@ export const createOrder = async (req, res) => {
     }
 }
 
-export const cancelOrder = async (req, res) => {
+export const cancelOrder = async (req, res, next) => {
     try {
         const { id } = req.params;
         const orderEdited = await Order.findByPk(id);
@@ -127,7 +138,16 @@ export const cancelOrder = async (req, res) => {
             return res
                 .status(404)
                 .send({ message: "the order was no found" });
-        orderEdited?.update({ ...req.body });
+        if (orderEdited.paymentStatus === "COMPLETED" && req.body.status === "canceled") {
+            return res.status(409).send({
+                message: "A paid order must be refunded in PayPal before it is canceled.",
+            });
+        }
+        const allowedStatuses = ["pending", "inProcess", "done", "canceled"];
+        if (!allowedStatuses.includes(req.body.status)) {
+            return res.status(400).send({ message: "Invalid order status." });
+        }
+        await orderEdited.update({ status: req.body.status });
         res.status(200).send({
             message: "The order was edited",
             order: orderEdited,

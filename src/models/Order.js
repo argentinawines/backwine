@@ -40,6 +40,30 @@ export const Order = sequelize.define(
         type: DataTypes.STRING,
         allowNull: false,
       },
+      subtotal: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+      },
+      shippingPrice: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+      },
+      currency: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      paypalOrderId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      paypalCaptureId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      paymentStatus: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       email: {
         type: DataTypes.STRING,
         allowNull: false,
