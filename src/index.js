@@ -2,6 +2,7 @@
 import "dotenv/config";
 import app from "./app.js";
 import { sequelize } from "./database/database.js";
+import { migrateCartSchema } from "./database/migrateCartSchema.js";
 
 const PORT = process.env.PORT || 10000;
 
@@ -18,6 +19,7 @@ app.listen(PORT, "0.0.0.0", () => {
   try {
     await sequelize.authenticate();
     await sequelize.sync({ force: false });
+    await migrateCartSchema();
     app.locals.dbOk = true;
     console.log("DB OK");
   } catch (err) {

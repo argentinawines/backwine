@@ -10,20 +10,22 @@ export const Cart = sequelize.define(
       defaultValue: DataTypes.UUIDV1,
       primaryKey: true,
     },
-    
-      quantity: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        allowNull: false,
-      },
-      userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-      },
-      productId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-      },
+    quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    productId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+    orderId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     freezeTableName: true,
