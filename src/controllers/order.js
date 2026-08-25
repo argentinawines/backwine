@@ -1,6 +1,7 @@
 import { Order  } from '../models/Order.js'
 import { Cart } from '../models/Cart.js'
 import { Product } from '../models/Product.js';
+import { sequelize } from '../database/database.js';
 
 
 export const getOrders = async (req, res) => {
@@ -42,19 +43,79 @@ export const getOrderID = async (req, res, next) => {
 }
 
 export const createOrder = async (req, res) => {
+    let transaction;
+
     try {
-        const orderCreated = await Order.create({ ...req.body });
-        if (!orderCreated)
-        return res
-            .status(401)
-            .send({ message: "the order was not created." });
-        res.status(200).send({
+        transaction = await sequelize.transaction();
+        const { items, ...orderData } = req.body;
+
+        if (items !== undefined && (!Array.isArray(items) || items.length === 0)) {
+            await transaction.rollback();
+            return res.status(400).send({
+                message: "The order must include at least one product.",
+            });
+        }
+
+        const normalizedItems = (items || []).map(({ productId, quantity }) => ({
+            productId,
+            quantity: Number(quantity),
+        }));
+
+        if (
+            normalizedItems.some(
+                ({ productId, quantity }) =>
+                    !productId || !Number.isInteger(quantity) || quantity <= 0
+            )
+        ) {
+            await transaction.rollback();
+            return res.status(400).send({
+                message: "Every product and quantity must be valid.",
+            });
+        }
+
+        if (normalizedItems.length > 0) {
+            const productIds = [...new Set(normalizedItems.map(({ productId }) => productId))];
+            const products = await Product.findAll({
+                attributes: ["id"],
+                where: { id: productIds },
+                transaction,
+            });
+
+            if (products.length !== productIds.length) {
+                await transaction.rollback();
+                return res.status(400).send({
+                    message: "One or more products no longer exist.",
+                });
+            }
+        }
+
+        const orderCreated = await Order.create(orderData, { transaction });
+        const carts = normalizedItems.length
+            ? await Cart.bulkCreate(
+                normalizedItems.map((item) => ({
+                    ...item,
+                    orderId: orderCreated.id,
+                    userId: orderData.userId || null,
+                })),
+                { transaction, validate: true }
+            )
+            : [];
+
+        await transaction.commit();
+
+        res.status(201).send({
             message: "this order was created.",
             orderCreated,
+            carts,
         });
     } catch (e) {
-      console.log(e);
-      
+        if (transaction && !transaction.finished) {
+            await transaction.rollback();
+        }
+        console.error(e);
+        res.status(500).send({
+            message: "The order and its products could not be created.",
+        });
     }
 }
 

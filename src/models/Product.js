@@ -55,16 +55,16 @@ export const Product = sequelize.define(
 );
 
 Product.hasMany(Cart, {
-  foreinkey: "productId",
+  foreignKey: "productId",
   sourceKey: "id",
 });
-Cart.belongsTo(Product, { foreinkey: "productId", targetId: "id" });
+Cart.belongsTo(Product, { foreignKey: "productId", targetKey: "id" });
 
 User.hasMany(Cart, {
-  foreinkey: "userId",
+  foreignKey: "userId",
   sourceKey: "id",
 });
-Cart.belongsTo(User, { foreinkey: "userId", targetId: "id" });
+Cart.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
 
 // Product.hasMany(ProductInOrder, {
 //   foreinkey: "productId",
@@ -73,16 +73,16 @@ Cart.belongsTo(User, { foreinkey: "userId", targetId: "id" });
 // ProductInOrder.belongsTo(Product, { foreinkey: "productId", targetId: "id" });
 
 User.hasMany(Order, {
-  foreinkey: "userId",
+  foreignKey: "userId",
   sourceKey: "id",
 });
-Order.belongsTo(User, { foreinkey: "userId", targetId: "id" });
+Order.belongsTo(User, { foreignKey: "userId", targetKey: "id" });
 
 Order.hasMany(Cart, {
-  foreinkey: "orderId",
+  foreignKey: "orderId",
   sourceKey: "id",
 });
-Cart.belongsTo(Order, { foreinkey: "orderId", targetId: "id" });
+Cart.belongsTo(Order, { foreignKey: "orderId", targetKey: "id" });
 
 // Cart.hasMany(Order, {
 //   foreinkey: "orderId",
