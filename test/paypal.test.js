@@ -65,7 +65,7 @@ test("creates PayPal orders with server-calculated amounts", { concurrency: fals
     assert.equal(body.purchase_units[0].shipping.address.country_code, "US");
     assert.equal(
       body.payment_source.paypal.experience_context.shipping_preference,
-      "SET_FROM_PROVIDER"
+      "SET_PROVIDED_ADDRESS"
     );
   } finally {
     globalThis.fetch = originalFetch;

@@ -127,7 +127,7 @@ export function createPayPalOrder({ localOrderId, quote, customer }) {
         paypal: {
           experience_context: {
             brand_name: "Argentina Wine Shipping",
-            shipping_preference: "SET_FROM_PROVIDER",
+            shipping_preference: "SET_PROVIDED_ADDRESS",
             user_action: "PAY_NOW",
             return_url: `${checkoutBaseUrl}/payment`,
             cancel_url: `${checkoutBaseUrl}/payment`,

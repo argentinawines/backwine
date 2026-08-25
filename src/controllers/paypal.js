@@ -145,7 +145,15 @@ export async function createCheckoutOrder(req, res) {
         .update({ paymentStatus: "FAILED", status: "canceled" })
         .catch(() => undefined);
     }
-    console.error("PayPal order creation failed:", error.message);
+    console.error("PayPal order creation failed:", {
+      message: error.message,
+      debugId: error?.details?.debug_id,
+      issues: error?.details?.details?.map(({ issue, description, field }) => ({
+        issue,
+        description,
+        field,
+      })),
+    });
     const response = publicCheckoutError(error);
     return res.status(response.status).json({ message: response.message });
   }
