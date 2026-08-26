@@ -61,6 +61,10 @@ export function formatMerchantOrderEmail(order) {
 }
 
 export async function notifyMerchantOfPaidOrder(orderId) {
+  // Render Free blocks outbound SMTP ports. Keep email delivery opt-in so a
+  // blocked SMTP connection never delays a successful PayPal capture.
+  if (process.env.ORDER_EMAIL_ENABLED !== "true") return false;
+
   const [claimed] = await Order.update(
     { merchantNotificationStatus: "SENDING" },
     {
