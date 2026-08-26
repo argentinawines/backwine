@@ -18,6 +18,9 @@ function getTransporter() {
   return nodemailer.createTransport({
     host,
     port,
+    // Render's free instances can resolve Gmail to IPv6 even when the
+    // instance has no usable IPv6 route. Force IPv4 so SMTP remains reachable.
+    family: 4,
     secure: process.env.SMTP_SECURE === "true" || port === 465,
     auth: { user, pass },
     connectionTimeout: 10000,
