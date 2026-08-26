@@ -1,41 +1,32 @@
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
-
-const jwt_secret = process.env.jwt_secret;
-
-
+function getJwtSecret() {
+  const secret = process.env.jwt_secret || process.env.SESSION_SECRET;
+  if (!secret) throw new Error("JWT_SECRET_NOT_CONFIGURED");
+  return secret;
+}
 
 export const tokenSign = async (user, time) => {
-  return jwt.sign(user, jwt_secret, { expiresIn: time });
+  return jwt.sign(user, getJwtSecret(), { expiresIn: time });
 };
 
 
 
-export const tokenVerify = async (req,res,next) => {
+export const tokenVerify = async (req, res, next) => {
+  const authorization = req.headers.authorization;
+  const [scheme, token] = String(authorization || "").split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).send({ message: "Administrator authentication required." });
+  }
 
-    
-
-    const bearerheader = req.headers["authorization"]; //1. tomamos el token desde el front.
-    // console.log('**************');
-    // console.log('token al back?==>>', bearerheader);
-    // console.log('***************');
-    if (typeof bearerheader !== "undefined") {
-      let tokenWithoutbearer = null; 
-      tokenWithoutbearer = bearerheader.split(" ")[1]; //2. le sacamos la palabra bearer
-      token = tokenWithoutbearer; //3.guardamos en el token--> el token limpio
-
-      //verificamos el token, si está bien continua con la ruta
-      jwt.verify(token, jwt_secret, (err) => {
-        if (err) {
-          return res.status(401).send({ message: "El token ya no es valido." });
-        } else {
-          next();
-        }
-      });
-      
-    } else {
-      return res.sendStatus(403); //forbidden (error 403)
+  try {
+    const payload = jwt.verify(token, getJwtSecret());
+    if (payload.role !== "admin") {
+      return res.status(403).send({ message: "Administrator access required." });
     }
-  
+    req.admin = payload;
+    return next();
+  } catch {
+    return res.status(401).send({ message: "The administrator session is invalid or expired." });
+  }
 };
-

@@ -1,13 +1,12 @@
 import { User } from "../models/User.js";
 import { hashPassword, checkPassword } from "../utils/handlePassword.js";
 import { Admin  } from "../models/Admin.js"
-// import { tokenSign } from "../utils/"
+import { tokenSign } from "../utils/jwt.js";
 
 
 
 //create user
 export const createUser = async (req, res, next) => {
-    console.log("body create user===>>>", req.body);
     try {
       const hashedPassword = await hashPassword(req.body.password);
       const userCreate = await User.create({
@@ -27,7 +26,6 @@ export const createUser = async (req, res, next) => {
     export const createAdmin = async (req, res, next) => {
         try {
           const hashedPassword = await hashPassword(req.body.password);
-          console.log(req.body, "body");
           const newAdmin = await Admin.create({
             
             ...req.body,
@@ -42,10 +40,12 @@ export const createUser = async (req, res, next) => {
               .send({ message: "the Admin cannot be created" });
           res
             .status(200)
-            .send({ message: "The Admin was Created", newAdmin });
+            .send({
+              message: "The Admin was Created",
+              admin: { email: newAdmin.email, rol: newAdmin.rol },
+            });
         } catch (e) {
           next(e);
-          console.log("error==>", e);
           
         }
       };
@@ -55,8 +55,6 @@ export const createUser = async (req, res, next) => {
     export const login = async (req, res, next) => {
             try {
               const { email, password } = req.body;
-              console.log("body==>", req.body);
-            
               const responseUser = await User.findByPk(email, {
                 // include: { model: Turn },
               });
@@ -80,10 +78,13 @@ export const createUser = async (req, res, next) => {
           
               //si el password es correct token
               if (passwordCorrect) {
-                // const tokenDeAcceso = await tokenSign(respDB.dataValues, "10h");
-                res.status(200).send({ 
-                    user: respDB, 
-                    // token: tokenDeAcceso 
+                const token = await tokenSign(
+                  { email: respDB.email, role: respDBadmin ? "admin" : "user" },
+                  "10h"
+                );
+                res.status(200).send({
+                    user: { email: respDB.email, rol: respDB.rol },
+                    token,
                 });
               } else {
                 //password incorrecto
@@ -110,23 +111,20 @@ export const createUser = async (req, res, next) => {
           };
 
           export const getAdmin = async (req, res, next) => {
-            console.log("req.body==>", req.body);
-            
-            
-           const pk= req.body.email
-            console.log("pk==>", pk);
-
             try {
-              const users = await Admin.findByPk(pk, );
-              if (!users)
+              const email = String(req.body?.email || "").trim().toLowerCase();
+              const password = String(req.body?.password || "");
+              const admin = await Admin.findByPk(email);
+              if (!admin || !(await checkPassword(password, admin.password))) {
+                return res.status(401).send({ message: "Invalid administrator credentials." });
+              }
 
-                return res
-
-                  .status(404)
-                  .send({ message: "No admin" });
-                  console.log("users==>", users);
-                  
-              res.status(200).send(users);
+              const token = await tokenSign({ email: admin.email, role: "admin" }, "10h");
+              return res.status(200).send({
+                email: admin.email,
+                rol: admin.rol || "admin",
+                token,
+              });
             } catch (e) {
               next(e);
             }
