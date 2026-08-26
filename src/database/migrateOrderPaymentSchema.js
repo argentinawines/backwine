@@ -8,6 +8,8 @@ const paymentColumns = {
   paypalOrderId: { type: DataTypes.STRING, allowNull: true },
   paypalCaptureId: { type: DataTypes.STRING, allowNull: true },
   paymentStatus: { type: DataTypes.STRING, allowNull: true },
+  merchantNotificationStatus: { type: DataTypes.STRING, allowNull: true },
+  merchantNotifiedAt: { type: DataTypes.DATE, allowNull: true },
 };
 
 export async function migrateOrderPaymentSchema() {

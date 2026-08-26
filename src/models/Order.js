@@ -64,6 +64,14 @@ export const Order = sequelize.define(
         type: DataTypes.STRING,
         allowNull: true,
       },
+      merchantNotificationStatus: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      merchantNotifiedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       email: {
         type: DataTypes.STRING,
         allowNull: false,
