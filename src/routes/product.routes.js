@@ -8,6 +8,7 @@ import {
   getProductsByName,
   getProductsByQuery,
 } from "../controllers/Product.js";
+import { tokenVerify } from "../utils/jwt.js";
 
 const router = Router();
 
@@ -41,8 +42,8 @@ router.get(["/product/:id", "/products/:id"], getProductID);
 /**
  * CRUD
  */
-router.post(["/product", "/products"], createProduct);
-router.put(["/product/:id", "/products/:id"], editProduct);
-router.delete(["/product/:id", "/products/:id"], productDelete);
+router.post(["/product", "/products"], tokenVerify, createProduct);
+router.put(["/product/:id", "/products/:id"], tokenVerify, editProduct);
+router.delete(["/product/:id", "/products/:id"], tokenVerify, productDelete);
 
 export default router;
