@@ -3,6 +3,7 @@ import { Cart } from "../models/Cart.js";
 import { Order } from "../models/Order.js";
 import { Op } from "sequelize";
 import { buildCheckoutQuote, centsToUsd } from "../services/checkout.js";
+import { notifyMerchantOfPaidOrder } from "../services/orderNotification.js";
 import {
   capturePayPalOrder,
   createPayPalOrder,
@@ -203,6 +204,10 @@ export async function captureCheckoutOrder(req, res) {
       paymentStatus: "COMPLETED",
     });
 
+    await notifyMerchantOfPaidOrder(order.id).catch((error) => {
+      console.error(`Order ${order.id} email notification failed:`, error.message);
+    });
+
     return res.status(200).json({
       status: "COMPLETED",
       orderId: order.id,
@@ -258,6 +263,9 @@ export async function receivePayPalWebhook(req, res) {
       await order.update({
         paypalCaptureId: capture.id,
         paymentStatus: "COMPLETED",
+      });
+      void notifyMerchantOfPaidOrder(order.id).catch((error) => {
+        console.error(`Order ${order.id} email notification failed:`, error.message);
       });
     } else if (
       eventType === "PAYMENT.CAPTURE.DENIED" ||
